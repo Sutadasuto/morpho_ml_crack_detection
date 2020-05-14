@@ -1,7 +1,7 @@
 # morpho_ml_crack_detection
 Clean version of the ML approach first introduced in https://github.com/Sutadasuto/morpho_crack_detection/tree/petr_advice
 
-To validate a model using fold cross-vlidation, run:
+To validate a model using 10 fold cross-validation, run:
 ```
 python train_and_validate.py dataset_name path_to_dataset_folder
 ```
@@ -17,6 +17,7 @@ Mat file name should be "dataset_name.mat". This repository creates 4 mat files 
 Feature extraction needs Matlab and SMIL (http://smil.cmm.mines-paristech.fr/wiki/doku.php/start) compiled from source with the Path Opening Addon.
 Additional Python requirements can be met by creating a conda environment with the environment.yaml file provided in this repository.
 
+## Parameters
 The full list of parameters is shown next:
 
 * ("dataset_name", type=str, help="Must be one of: 'cfd', 'cfd-pruned', 'aigle-rn', 'esar'")
