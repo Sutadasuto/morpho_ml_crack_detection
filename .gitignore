@@ -1,0 +1,6 @@
+__pycache*
+/.idea/
+/*.png
+/results*
+/*.txt
+/*.mat

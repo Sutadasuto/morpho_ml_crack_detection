@@ -1,0 +1,7 @@
+dataset_name: "cfd-pruned"
+dataset_path: "/media/winbuntu/databases/CrackForestDatasetPruned"
+--mat_file: "/media/winbuntu/databases/mat_files/feature_set_3/cfd-pruned_balanced.mat"
+--balanced: 1
+--metrics: ["matthews_corrcoef", "default"]
+--features_subset: "features.txt"
+--model_parameters: ["class_weight", "balanced", "random_state", 0]
