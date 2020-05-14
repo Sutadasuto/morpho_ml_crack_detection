@@ -3,8 +3,6 @@ import cv2
 import numpy as np
 import smilPython as sp
 
-import morpho_utils as utils
-
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
@@ -16,7 +14,8 @@ def parse_args(args=None):
 
 def main(args):
     image = cv2.imread(args.image_path, cv2.IMREAD_GRAYSCALE)
-    image = utils.min_max_contrast_enhancement(image)
+    image = (image.astype(np.float) - image.min()) * 255 / (image.max() - image.min())
+    image = image.astype(np.uint8)
     original = sp.Image()
     original.fromNumArray(image.transpose())
 
