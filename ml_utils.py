@@ -367,5 +367,3 @@ def get_set_dsc(images_root_path, images_list, crack_value=255):
     else:
         scores = [get_image_dsc(os.path.join(images_root_path, image), crack_value) for image in images_list]
     return scores
-
-calculate_dsc_from_result_folder("results")
