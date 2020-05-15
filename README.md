@@ -3,15 +3,28 @@ Clean version of the ML approach first introduced in https://github.com/Sutadasu
 
 To validate a model using 10 fold cross-validation, run:
 ```
-python train_and_validate.py dataset_name path_to_dataset_folder
+python train_and_validate.py dataset_name path/to/dataset_folder
 ```
 If you have already extracted features using this repository, you can add:
 ```
---mat_file path_to_mat
+--mat_file path/to/mat
 ```
 to train straightforward without extracting features again.
 
-Mat file name should be "dataset_name.mat". This repository creates 4 mat files when extracting features; the 4 files should always remain together in the same directory and their names shouldn't be changed (as long as they share directory and their names are unchanged, they can be moved to any desired location).
+Mat file name should be "dataset_name.mat". This repository creates 4 mat files when extracting features; the 4 files should always remain together in the same directory and their names shouldn't be changed (as long as they share directory and their names are unchanged, they can be moved to any desired location). You can download mat files for the 3 datasets in this link: https://drive.google.com/drive/folders/1-PqaeRPhBnfoxQqPQIfqNub1K2l4iISw?usp=sharing
+
+Notice that the 4 mat files to use for a dataset are:
+* dataset_name.mat (e.g. cfd-pruned.mat)
+* dataset_name_labels.mat (e.g. cfd-pruned_labels.mat)
+* dataset_name_pick_maps.mat (e.g. cfd-pruned_pick_maps.mat)
+* dataset_name_feature_names.mat (e.g. cfd-pruned_feature_names.mat)
+
+Instead of calling train_and_validate.py with terminal arguments, you can call:
+
+```
+python train_and_validate_from_yaml.py path/to/yaml
+```
+Where the provided file should contain a dict of parameters as expected by train_and_validate.py. An example file named "yaml_example.yaml" is provided in this repository as reference.
 
 ## Pre-requisites
 Feature extraction needs Matlab and SMIL (http://smil.cmm.mines-paristech.fr/wiki/doku.php/start) compiled from source with the Path Opening Addon.
