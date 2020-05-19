@@ -45,15 +45,13 @@ function preprocess_images(paths, gt_paths, dataset_name, balanced, save_images)
         images = features{1};
         processed_size = size(images);
         
-        n_white= sum(gt(:))/255;
-        [h, w] = size(gt);
-        n_black= h * w - n_white;
-        if n_black < n_white
+        n_white_pixels = sum(gt(:))/255;
+        h, w = 
+        n_black_pixels = 
+        gt_value = 255;
+        if numel(find(gt == 0)) < n_pixels
             gt_value = 0;
-        else
-            gt_value = 255;
         end
-
         gt_pixels = find(gt == gt_value);
         bg_pixels = find(gt == (255 - gt_value));
         n_gt_pixels = numel(gt_pixels);

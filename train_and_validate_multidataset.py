@@ -79,7 +79,6 @@ def main(args):
         ml_utils.save_visual_results(selected_pixels, predictions, y, paths, args.save_results_to)
     ml_utils.calculate_dsc_from_result_folder(args.save_results_to)
 
-
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("dataset_name", type=str, help="Must be one of: 'cfd', 'cfd-pruned', 'aigle-rn', 'esar'")
