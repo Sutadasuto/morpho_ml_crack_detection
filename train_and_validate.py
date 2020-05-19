@@ -6,11 +6,8 @@ from distutils.util import strtobool
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import Lasso, LassoCV, SGDClassifier, SGDRegressor
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.feature_selection import RFECV, SelectKBest, mutual_info_classif
 from sklearn.metrics import matthews_corrcoef, make_scorer
-from sklearn.metrics.pairwise import chi2_kernel
-from sklearn.model_selection import cross_validate, cross_val_predict, cross_val_score, KFold
-from sklearn.svm import LinearSVC, SVC
+from sklearn.model_selection import cross_validate, KFold
 
 import ml_utils
 
@@ -49,8 +46,8 @@ def main(args):
     folds = []
     test_images = []
     for train_index, test_index in kf.split(images):
-        folds.append((np.concatenate([np.where(selected_pixels[:, 0] == idx)[0] for idx in train_index]),
-                      np.concatenate([np.where(selected_pixels[:, 0] == idx)[0] for idx in test_index])))
+        folds.append((np.concatenate([np.uint32(np.where(selected_pixels[:, 0] == idx)[0]) for idx in train_index]),
+                      np.concatenate([np.uint32(np.where(selected_pixels[:, 0] == idx)[0]) for idx in test_index])))
         fold_test_images = ["" for i in range(len(test_index))]
         for image, idx in enumerate(test_index):
             fold_test_images[image] = os.path.split(paths[0][idx])[-1]

@@ -11,13 +11,10 @@ def main(yaml_path):
             parameters[key] = " ".join(['"%s"' % str(value) for value in parameters[key]])
         elif type(parameters[key]) is str:
             parameters[key] = '"%s"' % parameters[key]
-    command = "python train_and_validate.py"
+    command = "python train_and_validate_multidataset.py"
     for key in parameters.keys():
         value = parameters[key]
-        if not key.startswith("--"):
-            command += " %s" % value
-        else:
-            command += " %s %s" % (key, value)
+        command += " %s %s" % (key, value)
     os.system(command)
 
 

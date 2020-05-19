@@ -232,7 +232,7 @@ def open_morphological_features(path_to_mat, balanced=False):
         print("No mat file found for picked pixels.")
         selected_pixels = None
 
-    return features, np.ravel(labels), feature_names, selected_pixels
+    return features, np.ravel(labels), feature_names, selected_pixels.astype(np.uint16)
 
 
 def flatten_pixels(images_array):
