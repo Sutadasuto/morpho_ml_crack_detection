@@ -327,30 +327,37 @@ def cross_dataset_validation(model, x_train, y_train, x_test, y_test, test_selec
 
 def get_image_dsc(img, crack_value=255):
     if type(img) is str:
-        img = cv2.imread(img)
+        img = cv2.imread(img, cv2.IMREAD_GRAYSCALE)
     elif type(img) is not np.ndarray:
         raise ValueError("Expected input: either a path to an image, or an image as numpy array.")
-    height, width, channels = img.shape
+    height, width = img.shape
     width = int(width/4)
-    gt = img[:, width:2 * width, 0] / 255
-    gt = gt.astype(np.uint8)
+
+    gt = img[:, width:2 * width]
+    ret, gt = cv2.threshold(gt, 127, 255, cv2.THRESH_BINARY)
+    gt = (gt/255).astype(np.uint8)
     if crack_value == 0:
         gt = 1 - gt
 
-    predicted = img[:, 2 * width:3 * width, 0] / 255
-    predicted = predicted.astype(np.uint8)
+    predicted = img[:, 2 * width:3 * width]
+    ret, predicted = cv2.threshold(predicted, 127, 255, cv2.THRESH_BINARY)
+    predicted = (predicted / 255).astype(np.uint8)
+
     intersect = predicted * gt
     intersect_area = np.sum(intersect)
     gt_area = np.sum(gt)
     predicted_crack_area= np.sum(predicted)
     dsc = (2 * intersect_area + 1) / (gt_area + predicted_crack_area + 1)
+    # cv2.imshow("%s, %s, %s, %s" % (gt_area, predicted_crack_area, intersect_area, dsc), np.concatenate((gt, predicted, intersect, gt * (1 - predicted)), axis=1) * 255)
+    # cv2.waitKey(1000)
+    # cv2.destroyWindow("%s, %s, %s, %s" % (gt_area, predicted_crack_area, intersect_area, dsc))
     return np.float32(dsc)
 
 
 def calculate_dsc_from_result_folder(result_folder, crack_value=255):
 
     with open(os.path.join(result_folder, "results.txt"), 'r') as f:
-        content = f.read().split("\n")
+        content = f.read().strip().split("\n")
     folds_first_line = None
     for line_number, line in enumerate(content):
         if line.startswith("Test images per fold"):
@@ -358,12 +365,23 @@ def calculate_dsc_from_result_folder(result_folder, crack_value=255):
             break
     if folds_first_line is None:
         raise ValueError("results.txt doesn't have the expected format. Try a different file.")
-    scores = [get_set_dsc(result_folder, line.strip('][').replace("'", '').split(', '), crack_value) for line in content[folds_first_line:]]
-    return scores
+    fold_scores = [get_set_dsc(result_folder, line.strip('][').replace("'", '').split(', '), crack_value) for line in content[folds_first_line:]]
+    scores = [np.mean(fold) for fold in fold_scores]
+    statistics = "{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}".format("DSC", 100*np.mean(scores), 100*np.std(scores), 100*np.min(scores), 100*np.max(scores))
+    scores = "%s\n %s" % (str(scores[:6]).strip("]").replace(",", ""), str(scores[6:]).strip("[").replace(",", ""))
+    print("\n%s" % scores)
+    print(statistics)
+    new_text = content[:folds_first_line - 1] + [scores, "%s\n" % statistics] + content[folds_first_line - 1:]
+    new_text = "\n".join(new_text)
+    with open(os.path.join(result_folder, "results.txt"), 'w') as f:
+        f.write(new_text.strip())
+
 
 def get_set_dsc(images_root_path, images_list, crack_value=255):
     if images_root_path is None:
         scores = [get_image_dsc(image, crack_value) for image in images_list]
     else:
         scores = [get_image_dsc(os.path.join(images_root_path, image), crack_value) for image in images_list]
-    return scores
+    return np.array(scores)
+
+# calculate_dsc_from_result_folder("/media/winbuntu/google-drive/ESIEE/Thesis/Year_1/results_crack_detection/Machine Learning/tree_based_good/cfd-pruned feature_set_3 RandomForestClassifier 50")
