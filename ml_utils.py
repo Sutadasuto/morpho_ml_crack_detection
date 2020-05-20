@@ -457,14 +457,20 @@ def calculate_dsc_from_result_folder(result_folder):
     fold_scores = [get_set_dsc(result_folder, line.strip('][').replace("'", '').split(', ')) for line in
                    content[folds_first_line:]]
     scores = [np.mean(fold) for fold in fold_scores]
-    statistics = "{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}".format("DSC", 100 * np.mean(scores),
+    if len(scores) == 1:
+        statistics = "{}(%) = {:.2f}".format("dsc", 100 * scores[0])
+    else:
+        statistics = "{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}".format("dsc", 100 * np.mean(scores),
                                                                               100 * np.std(scores),
                                                                               100 * np.min(scores),
                                                                               100 * np.max(scores))
-    scores = "%s\n %s" % (str(scores[:6]).strip("]").replace(",", ""), str(scores[6:]).strip("[").replace(",", ""))
-    print("\n%s" % scores)
     print(statistics)
-    new_text = content[:folds_first_line - 1] + [scores, "%s\n" % statistics] + content[folds_first_line - 1:]
+    if len(scores) > 1:
+        scores = "%s\n %s" % (str(scores[:6]).strip("]").replace(",", ""), str(scores[6:]).strip("[").replace(",", ""))
+        print("\n%s" % scores)
+        new_text = content[:folds_first_line - 1] + [scores, "%s\n" % statistics] + content[folds_first_line - 1:]
+    else:
+        new_text = content[:folds_first_line - 1] + ["%s\n" % statistics] + content[folds_first_line - 1:]
     new_text = "\n".join(new_text)
     with open(os.path.join(result_folder, "results.txt"), 'w') as f:
         f.write(new_text.strip())

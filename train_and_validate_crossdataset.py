@@ -24,7 +24,8 @@ available_scores = {"default": None,
                     "matthews_corrcoef": matthews_corrcoef,
                     "precision_score": precision_score,
                     "recall_score": precision_score,
-                    "f1_score": f1_score}
+                    "f1_score": f1_score,
+                    "dsc": "dsc"}
 
 
 def main(args):
@@ -52,22 +53,7 @@ def main(args):
     for metric in args.metrics:
         score_func = available_scores[metric]
         scoring[metric] = score_func if score_func is not None else None
-    scorer_names = list(scoring.keys())
 
-    # images = list(set(selected_pixels[:, 0]))
-    # kf = KFold(n_splits=args.n_folds, shuffle=True, random_state=0)
-    # kf.get_n_splits(y)
-    # folds = []
-    # test_images = []
-    # for train_index, test_index in kf.split(images):
-    #     folds.append((np.concatenate([np.uint32(np.where(selected_pixels[:, 0] == idx)[0]) for idx in train_index]),
-    #                   np.concatenate([np.uint32(np.where(selected_pixels[:, 0] == idx)[0]) for idx in test_index])))
-    #     fold_test_images = ["" for i in range(len(test_index))]
-    #     for image, idx in enumerate(test_index):
-    #         fold_test_images[image] = os.path.split(paths[0][idx])[-1]
-    #     test_images.append(sorted(fold_test_images))
-    # del kf
-    # test_images = "\n".join([str(fold) for fold in test_images])
     test_images = ["'%s'" % os.path.split(paths_test[0][idx])[-1] for idx in range(len(paths_test[0]))]
     test_images = "[%s]" % ", ".join(test_images)
 
@@ -80,7 +66,11 @@ def main(args):
         clf.fit(x_train, y_train)
 
         predictions = clf.predict(x_test)
+        dsc = False
         for metric in scoring.keys():
+            if metric == "dsc":
+                dsc = True
+                continue
             if scoring[metric] is None:
                 value = 100*clf.score(x_test, y_test)
             else:
@@ -90,28 +80,10 @@ def main(args):
 
         print("\nTest images per fold (dataset %s):\n%s" % (args.dataset_names[1], test_images))
         f.write("\nTest images per fold (dataset %s):\n%s" % (args.dataset_names[1], test_images))
-
-
-        #         cv_results = cross_validate(clf, x[:, selected_indices], y, scoring=scoring, verbose=50, n_jobs=1,
-        #                             cv=folds, return_estimator=True)
-        # for scorer_name in scorer_names:
-        #     scores = cv_results["test_" + scorer_name]
-        #     print("\n%s" % str(scores))
-        #     f.write("\n%s\n" % str(scores))
-        #     print("{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}".format(scorer_name, 100 * np.mean(scores),
-        #                                                                        100 * np.std(scores),
-        #                                                                        100 * np.min(scores),
-        #                                                                        100 * np.max(scores)))
-        #     f.write("{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}\n".format(scorer_name, 100 * np.mean(scores),
-        #                                                                            100 * np.std(scores),
-        #                                                                            100 * np.min(scores),
-        #                                                                            100 * np.max(scores)))
-        # print("\nTest images per fold (dataset %s):\n%s" % (args.dataset_name, test_images))
-        # f.write("\nTest images per fold (dataset %s):\n%s" % (args.dataset_name, test_images))
-        #
-        # predictions = ml_utils.cross_validate_predict(x[:, selected_indices], folds, cv_results)
         ml_utils.save_visual_results(selected_pixels_test, predictions, y_test, paths_test, args.save_results_to)
-    ml_utils.calculate_dsc_from_result_folder(args.save_results_to)
+
+    if dsc:
+        ml_utils.calculate_dsc_from_result_folder(args.save_results_to)
 
 
 def parse_args(args=None):

@@ -21,7 +21,8 @@ available_scores = {"default": None,
                     "matthews_corrcoef": matthews_corrcoef,
                     "precision_score": precision_score,
                     "recall_score": recall_score,
-                    "f1_score": f1_score}
+                    "f1_score": f1_score,
+                    "dsc": "dsc"}
 
 
 def main(args):
