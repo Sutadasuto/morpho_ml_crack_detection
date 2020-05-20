@@ -22,21 +22,27 @@ available_models = {"RandomForestClassifier": RandomForestClassifier,
 
 available_scores = {"default": None,
                     "matthews_corrcoef": matthews_corrcoef,
-                    "precision_score" : precision_score,
-                    "recall_score" : precision_score,
-                    "f1_score" : f1_score}
+                    "precision_score": precision_score,
+                    "recall_score": precision_score,
+                    "f1_score": f1_score}
 
 
 def main(args):
-    dataset_arrays = [
-        ml_utils.create_samples(args.dataset_names[dataset], args.dataset_paths[dataset], args.mat_files[dataset],
-                                args.balanced[dataset], bool(strtobool(args.save_images))) for dataset in
-        range(len(args.dataset_names))]
-    total_images = len(dataset_arrays[0][4][0])
-    for dataset in range(1, len(dataset_arrays)):
-        dataset_arrays[dataset][3][:, 0] += total_images
-        total_images += len(dataset_arrays[dataset][4][0])
-    selected_indices, selected_features = ml_utils.get_feature_subset(args, dataset_arrays[0][2])
+    x_train, y_train, feature_names, selected_pixels_train, paths_train = ml_utils.create_samples(args.dataset_names[0],
+                                                                                                  args.dataset_paths[0],
+                                                                                                  args.mat_files[0],
+                                                                                                  args.balanced[0],
+                                                                                                  bool(strtobool(
+                                                                                                      args.save_images))
+                                                                                                  )
+    x_test, y_test, feature_names, selected_pixels_test, paths_test = ml_utils.create_samples(args.dataset_names[1],
+                                                                                                  args.dataset_paths[1],
+                                                                                                  args.mat_files[1],
+                                                                                                  args.balanced[1],
+                                                                                                  bool(strtobool(
+                                                                                                      args.save_images))
+                                                                                                  )
+    selected_indices, selected_features = ml_utils.get_feature_subset(args, feature_names)
     log_string = "Selected features:\n%s\n" % selected_features
     print(log_string)
 
@@ -48,42 +54,20 @@ def main(args):
         scoring[metric] = make_scorer(score_func) if score_func is not None else None
     scorer_names = list(scoring.keys())
 
-    images = [i for i in range(dataset_arrays[-1][3][-1, 0])]
-    kf = KFold(n_splits=args.n_folds, shuffle=True, random_state=0)
-    kf.get_n_splits(images)
-    folds = []
-    test_images = []
-    prev_pixels = [0]
-    for dataset in range(1, len(dataset_arrays)):
-        prev_pixels += [dataset_arrays[dataset - 1][1].shape[0] + prev_pixels[dataset - 1]]
-    all_paths = [dataset_arrays[dataset][4][0][path] for dataset in range(len(dataset_arrays)) for path in
-                 range(len(dataset_arrays[dataset][4][0]))]
-    for train_index, test_index in kf.split(images):
-        folds.append((
-            np.concatenate(
-                [np.uint32(prev_pixels[dataset] + np.where(dataset_arrays[dataset][3][:, 0] == idx)[0])
-                 for idx in train_index
-                 for dataset in range(len(dataset_arrays))]
-            ),
-            np.concatenate(
-                [np.uint32(prev_pixels[dataset] + np.where(dataset_arrays[dataset][3][:, 0] == idx)[0])
-                 for idx in test_index
-                 for dataset in range(len(dataset_arrays))]
-            )
-        ))
-        fold_test_images = ["" for i in range(len(test_index))]
-        for image, idx in enumerate(test_index):
-            fold_test_images[image] = os.path.split(all_paths[idx])[-1]
-        test_images.append(sorted(fold_test_images))
-    del kf
-    test_images = "\n".join([str(fold) for fold in test_images])
-
-    paths = np.concatenate([dataset_arrays[dataset][4] for dataset in range(len(dataset_arrays))], axis=1).transpose()
-    x = np.concatenate([dataset_arrays[dataset][0] for dataset in range(len(dataset_arrays))], axis=0)
-    y = np.concatenate([dataset_arrays[dataset][1] for dataset in range(len(dataset_arrays))], axis=0)
-    feature_names = dataset_arrays[0][2]
-    selected_pixels = np.concatenate([dataset_arrays[dataset][3] for dataset in range(len(dataset_arrays))], axis=0)
-    del dataset_arrays
+    # images = list(set(selected_pixels[:, 0]))
+    # kf = KFold(n_splits=args.n_folds, shuffle=True, random_state=0)
+    # kf.get_n_splits(y)
+    # folds = []
+    # test_images = []
+    # for train_index, test_index in kf.split(images):
+    #     folds.append((np.concatenate([np.uint32(np.where(selected_pixels[:, 0] == idx)[0]) for idx in train_index]),
+    #                   np.concatenate([np.uint32(np.where(selected_pixels[:, 0] == idx)[0]) for idx in test_index])))
+    #     fold_test_images = ["" for i in range(len(test_index))]
+    #     for image, idx in enumerate(test_index):
+    #         fold_test_images[image] = os.path.split(paths[0][idx])[-1]
+    #     test_images.append(sorted(fold_test_images))
+    # del kf
+    # test_images = "\n".join([str(fold) for fold in test_images])
 
     if not os.path.exists(args.save_results_to):
         os.makedirs(args.save_results_to)
@@ -91,6 +75,8 @@ def main(args):
         f.write(log_string)
         print("Classifier: %s" % str(clf))
         f.write("\nClassifier: %s\n" % str(clf))
+        clf.fit(x_train, y_train)
+
         cv_results = cross_validate(clf, x[:, selected_indices], y, scoring=scoring, verbose=50, n_jobs=1,
                                     cv=folds, return_estimator=True)
         for scorer_name in scorer_names:
@@ -115,9 +101,9 @@ def main(args):
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_names", type=str, nargs="+",
+    parser.add_argument("--dataset_names", type=str, nargs=2,
                         help="Must be one of: 'cfd', 'cfd-pruned', 'aigle-rn', 'esar'")
-    parser.add_argument("--dataset_paths", type=str, nargs="+",
+    parser.add_argument("--dataset_paths", type=str, nargs=2,
                         help="Path to the folder containing the datasets as downloaded from the original source")
     parser.add_argument("--mat_files", type=str, nargs="+", default=[None],
                         help="Path to mat files containing the processed "
@@ -156,11 +142,8 @@ def parse_args(args=None):
                              "File can contain only 'all', to choose all features")
 
     args_dict = parser.parse_args(args)
-    if len(args_dict.balanced) == 1:
-        args_dict.balanced = [args_dict.balanced[0] for i in range(len(args_dict.dataset_names))]
-    for dataset in range(len(args_dict.balanced)):
-        if args_dict.balanced[dataset] == 0 or args_dict.balanced[dataset] == 1:
-            args_dict.balanced[dataset] = bool(args_dict.balanced[dataset])
+    if args_dict.balanced == 0 or args_dict.balanced == 1:
+        args_dict.balanced = bool(args_dict.balanced)
     if len(args_dict.mat_files) == 1:
         args_dict.mat_files = [args_dict.mat_files[0] for i in range(len(args_dict.dataset_names))]
     return args_dict

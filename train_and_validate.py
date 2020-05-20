@@ -6,7 +6,7 @@ from distutils.util import strtobool
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import Lasso, LassoCV, SGDClassifier, SGDRegressor
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.metrics import matthews_corrcoef, make_scorer
+from sklearn.metrics import matthews_corrcoef, precision_score, recall_score, f1_score, make_scorer
 from sklearn.model_selection import cross_validate, KFold
 
 import ml_utils
@@ -21,7 +21,10 @@ available_models = {"RandomForestClassifier": RandomForestClassifier,
                     "DecisionTreeRegressor": DecisionTreeRegressor}
 
 available_scores = {"default": None,
-                    "matthews_corrcoef": matthews_corrcoef}
+                    "matthews_corrcoef": matthews_corrcoef,
+                    "precision_score" : precision_score,
+                    "recall_score" : precision_score,
+                    "f1_score" : f1_score}
 
 
 def main(args):
