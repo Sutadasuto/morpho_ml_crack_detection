@@ -51,7 +51,7 @@ def main(args):
     scoring = {}
     for metric in args.metrics:
         score_func = available_scores[metric]
-        scoring[metric] = make_scorer(score_func) if score_func is not None else None
+        scoring[metric] = score_func if score_func is not None else None
     scorer_names = list(scoring.keys())
 
     # images = list(set(selected_pixels[:, 0]))
@@ -68,6 +68,8 @@ def main(args):
     #     test_images.append(sorted(fold_test_images))
     # del kf
     # test_images = "\n".join([str(fold) for fold in test_images])
+    test_images = ["'%s'" % os.path.split(paths_test[0][idx])[-1] for idx in range(len(paths_test[0]))]
+    test_images = "[%s]" % ", ".join(test_images)
 
     if not os.path.exists(args.save_results_to):
         os.makedirs(args.save_results_to)
@@ -77,25 +79,38 @@ def main(args):
         f.write("\nClassifier: %s\n" % str(clf))
         clf.fit(x_train, y_train)
 
-        cv_results = cross_validate(clf, x[:, selected_indices], y, scoring=scoring, verbose=50, n_jobs=1,
-                                    cv=folds, return_estimator=True)
-        for scorer_name in scorer_names:
-            scores = cv_results["test_" + scorer_name]
-            print("\n%s" % str(scores))
-            f.write("\n%s\n" % str(scores))
-            print("{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}".format(scorer_name, 100 * np.mean(scores),
-                                                                               100 * np.std(scores),
-                                                                               100 * np.min(scores),
-                                                                               100 * np.max(scores)))
-            f.write("{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}\n".format(scorer_name, 100 * np.mean(scores),
-                                                                                   100 * np.std(scores),
-                                                                                   100 * np.min(scores),
-                                                                                   100 * np.max(scores)))
-        print("\nTest images per fold (dataset %s):\n%s" % (args.dataset_name, test_images))
-        f.write("\nTest images per fold (dataset %s):\n%s" % (args.dataset_name, test_images))
+        predictions = clf.predict(x_test)
+        for metric in scoring.keys():
+            if scoring[metric] is None:
+                value = 100*clf.score(x_test, y_test)
+            else:
+                value = 100*scoring[metric](y_test, predictions)
+            print("{}(%) = {:.2f}".format(metric, value))
+            f.write("\n{}(%) = {:.2f}\n" .format(metric, value))
 
-        predictions = ml_utils.cross_validate_predict(x[:, selected_indices], folds, cv_results)
-        ml_utils.save_visual_results(selected_pixels, predictions, y, paths, args.save_results_to)
+        print("\nTest images per fold (dataset %s):\n%s" % (args.dataset_names[1], test_images))
+        f.write("\nTest images per fold (dataset %s):\n%s" % (args.dataset_names[1], test_images))
+
+
+        #         cv_results = cross_validate(clf, x[:, selected_indices], y, scoring=scoring, verbose=50, n_jobs=1,
+        #                             cv=folds, return_estimator=True)
+        # for scorer_name in scorer_names:
+        #     scores = cv_results["test_" + scorer_name]
+        #     print("\n%s" % str(scores))
+        #     f.write("\n%s\n" % str(scores))
+        #     print("{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}".format(scorer_name, 100 * np.mean(scores),
+        #                                                                        100 * np.std(scores),
+        #                                                                        100 * np.min(scores),
+        #                                                                        100 * np.max(scores)))
+        #     f.write("{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}\n".format(scorer_name, 100 * np.mean(scores),
+        #                                                                            100 * np.std(scores),
+        #                                                                            100 * np.min(scores),
+        #                                                                            100 * np.max(scores)))
+        # print("\nTest images per fold (dataset %s):\n%s" % (args.dataset_name, test_images))
+        # f.write("\nTest images per fold (dataset %s):\n%s" % (args.dataset_name, test_images))
+        #
+        # predictions = ml_utils.cross_validate_predict(x[:, selected_indices], folds, cv_results)
+        ml_utils.save_visual_results(selected_pixels_test, predictions, y_test, paths_test, args.save_results_to)
     ml_utils.calculate_dsc_from_result_folder(args.save_results_to)
 
 
@@ -142,8 +157,11 @@ def parse_args(args=None):
                              "File can contain only 'all', to choose all features")
 
     args_dict = parser.parse_args(args)
-    if args_dict.balanced == 0 or args_dict.balanced == 1:
-        args_dict.balanced = bool(args_dict.balanced)
+    if len(args_dict.balanced) == 1:
+        args_dict.balanced = [args_dict.balanced[0] for i in range(len(args_dict.dataset_names))]
+    for dataset in range(len(args_dict.balanced)):
+        if args_dict.balanced[dataset] == 0 or args_dict.balanced[dataset] == 1:
+            args_dict.balanced[dataset] = bool(args_dict.balanced[dataset])
     if len(args_dict.mat_files) == 1:
         args_dict.mat_files = [args_dict.mat_files[0] for i in range(len(args_dict.dataset_names))]
     return args_dict

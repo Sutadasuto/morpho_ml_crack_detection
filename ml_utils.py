@@ -4,7 +4,8 @@ import numpy as np
 import os
 import scipy.io
 
-from sklearn.metrics import accuracy_score, r2_score
+from sklearn.metrics import accuracy_score, r2_score, make_scorer
+from sklearn.model_selection import cross_validate, KFold
 
 
 # def create_images(dataset_name, dataset_path, mat_path=None):
@@ -143,14 +144,18 @@ def create_samples(dataset_name, dataset_path, mat_path=None, balanced=False, sa
     return features, labels, feature_names, selected_pixels, [or_im_paths, gt_paths]
 
 
-def create_multidataset_samples(dataset_names, dataset_paths, mat_paths=[None, None], balanceds=[False, False],
-                                save_imagess=[True, True]):
+def create_multidataset_samples(dataset_names, dataset_paths, mat_paths=[None], balanceds=[False], save_images=True):
     print("Loading data...")
+    if len(mat_paths) == 1:
+        mat_paths = [mat_paths[0] for i in range(len(dataset_names))]
+    if len(balanceds) == 1:
+        balanceds = [balanceds[0] for i in range(len(dataset_names))]
 
     features_list, labels_list, feature_names_list, selected_pixels_list, paths_list = [], [], [], [], []
+    acumulated_images = 0
     for idx in range(len(dataset_names)):
         dataset_name, dataset_path, mat_path, balanced, save_images = dataset_names[idx], dataset_paths[idx], mat_paths[
-            idx], balanceds[idx], save_imagess[idx]
+            idx], balanceds[idx], save_images
 
         if dataset_name == "cfd" or dataset_name == "cfd-pruned":
             or_im_paths, gt_paths = data.paths_generator_cfd(dataset_path)
@@ -161,6 +166,8 @@ def create_multidataset_samples(dataset_names, dataset_paths, mat_paths=[None, N
 
         if mat_path is not None:
             features, labels, feature_names, selected_pixels = open_morphological_features(mat_path, balanced)
+            selected_pixels[:, 0] = acumulated_images + selected_pixels[:, 0]
+            acumulated_images += len(set(selected_pixels[:, 0]))
             features_list.append(features)
             labels_list.append(labels)
             feature_names_list.append(feature_names)
@@ -171,14 +178,21 @@ def create_multidataset_samples(dataset_names, dataset_paths, mat_paths=[None, N
         features, labels, feature_names, selected_pixels = get_morphological_features(or_im_paths, gt_paths,
                                                                                       dataset_name, balanced,
                                                                                       save_images)
+        selected_pixels[:, 0] = acumulated_images + selected_pixels[:, 0]
+        acumulated_images += len(selected_pixels[:, 0])
         features_list.append(features)
         labels_list.append(labels)
         feature_names_list.append(feature_names)
         selected_pixels_list.append(selected_pixels)
         paths_list.append([or_im_paths, gt_paths])
 
+    features = np.concatenate(features_list, axis=0)
+    labels = np.concatenate(labels_list, axis=0)
+    feature_names = feature_names_list[0]
+    selected_pixels = np.concatenate(selected_pixels_list, axis=0)
+    paths = np.concatenate(paths_list, axis=1)
     print("Data loaded!")
-    return features_list, labels_list, feature_names_list, selected_pixels_list, paths_list
+    return features, labels, feature_names, selected_pixels, paths
 
 
 def get_morphological_features(paths, gt_paths, dataset_name, balanced, save_resulting_images):
@@ -334,6 +348,69 @@ def cross_dataset_validation(model, x_train, y_train, x_test, y_test, test_selec
     if save_images_to is not None:
         save_visual_results(test_selected_pixels, cross_dataset_predictions, y_test, test_paths, save_images_to)
     return cross_dataset_score, score_function.__name__
+
+
+def n_fold_cross_validation(args, available_models, available_scores, x, y, feature_names, selected_pixels, paths):
+    selected_indices, selected_features = get_feature_subset(args, feature_names)
+    log_string = "Selected features:\n%s\n" % selected_features
+    print(log_string)
+
+    parameter_dict = get_parameter_dict(args)
+    clf = available_models[args.model](**parameter_dict)
+    scoring = {}
+    for metric in args.metrics:
+        score_func = available_scores[metric]
+        scoring[metric] = make_scorer(score_func) if score_func is not None else None
+    scorer_names = list(scoring.keys())
+    if "dsc" in scorer_names:
+        del scoring["dsc"]
+
+    images = list(set(selected_pixels[:, 0]))
+    kf = KFold(n_splits=args.n_folds, shuffle=True, random_state=0)
+    kf.get_n_splits(y)
+    folds = []
+    test_images = []
+    for train_index, test_index in kf.split(images):
+        folds.append((np.concatenate([np.uint32(np.where(selected_pixels[:, 0] == idx)[0]) for idx in train_index]),
+                      np.concatenate([np.uint32(np.where(selected_pixels[:, 0] == idx)[0]) for idx in test_index])))
+        fold_test_images = ["" for i in range(len(test_index))]
+        for image, idx in enumerate(test_index):
+            fold_test_images[image] = os.path.split(paths[0][idx])[-1]
+        test_images.append(sorted(fold_test_images))
+    del kf
+    test_images = "\n".join([str(fold) for fold in test_images])
+
+    if not os.path.exists(args.save_results_to):
+        os.makedirs(args.save_results_to)
+    with open(os.path.join(args.save_results_to, "results.txt"), "w") as f:
+        f.write(log_string)
+        print("Classifier: %s" % str(clf))
+        f.write("\nClassifier: %s\n" % str(clf))
+        cv_results = cross_validate(clf, x[:, selected_indices], y, scoring=scoring, verbose=50, n_jobs=1,
+                                    cv=folds, return_estimator=True)
+        dsc = False
+        for scorer_name in scorer_names:
+            if scorer_name == "dsc":
+                dsc = True
+                continue
+            scores = cv_results["test_" + scorer_name]
+            print("\n%s" % str(scores))
+            f.write("\n%s\n" % str(scores))
+            print("{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}".format(scorer_name, 100 * np.mean(scores),
+                                                                               100 * np.std(scores),
+                                                                               100 * np.min(scores),
+                                                                               100 * np.max(scores)))
+            f.write("{}(%) Avg,Std,Min,Max = {:.2f},{:.2f},{:.2f},{:.2f}\n".format(scorer_name, 100 * np.mean(scores),
+                                                                                   100 * np.std(scores),
+                                                                                   100 * np.min(scores),
+                                                                                   100 * np.max(scores)))
+        print("\nTest images per fold (dataset %s):\n%s" % (args.dataset_name, test_images))
+        f.write("\nTest images per fold (dataset %s):\n%s" % (args.dataset_name, test_images))
+
+        predictions = cross_validate_predict(x[:, selected_indices], folds, cv_results)
+        save_visual_results(selected_pixels, predictions, y, paths, args.save_results_to)
+    if dsc:
+        calculate_dsc_from_result_folder(args.save_results_to)
 
 
 def get_image_dsc(img):
